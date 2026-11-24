@@ -52,7 +52,10 @@ export function OrderDetailModal({
                 id="order-detail-title"
                 className="font-display font-bold text-base truncate"
               >
-                Detail Pesanan Masuk
+                Detail Pesanan · Meja{' '}
+                <span data-testid="modal-table-number" className="font-mono-num text-[#F59E0B]">
+                  {order.tableNumber}
+                </span>
               </h2>
               <p className="text-xs text-white/75">
                 Masuk pukul {formatTimeClock(order.createdAt)} · {statusLabel}

@@ -8,7 +8,8 @@ import {
   PackageCheck,
   Monitor,
   Eye,
-  Lock,
+  LogOut,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { CATEGORY_LABELS } from '../data/menuData';
 import { resolveAssetUrl } from '../logic/routing';
@@ -20,6 +21,7 @@ import {
   getElapsedSeconds,
 } from '../logic/storeLogic';
 import type { CategoryFilter, MenuItem, OrderRecord } from '../types/kiosk';
+import { AdminLoginGate } from './AdminLoginGate';
 import { BrandLogo } from './BrandLogo';
 import { OrderDetailModal } from './OrderDetailModal';
 
@@ -27,6 +29,10 @@ interface AdminDashboardProps {
   menuItems: MenuItem[];
   orders: OrderRecord[];
   nowMs: number;
+  authToken: string | null;
+  authUsername: string | null;
+  onAuthChange: (token: string | null, username: string | null) => void;
+  onLogout: () => Promise<void>;
   onProcessOrder: (orderId: string) => void;
   onFinishOrder: (orderId: string) => void;
   onToggleStock: (menuId: string) => void;
@@ -41,6 +47,10 @@ export function AdminDashboard({
   menuItems,
   orders,
   nowMs,
+  authToken,
+  authUsername,
+  onAuthChange,
+  onLogout,
   onProcessOrder,
   onFinishOrder,
   onToggleStock,
@@ -92,6 +102,19 @@ export function AdminDashboard({
     [orders, selectedOrderId]
   );
 
+  if (!authToken || !authUsername) {
+    return (
+      <AdminLoginGate
+        title="Login Admin Panel"
+        subtitle="Masuk dengan akun admin untuk mengakses antrian dapur, rekapan order, dan kontrol stok KIOS CAFE."
+        submitLabel="Masuk ke Admin Panel"
+        footerLabel="KIOS CAFE · Akses Terlindungi Admin Panel"
+        onSuccess={(token, username) => onAuthChange(token, username)}
+        onGoCustomer={onSwitchToCustomer}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#F4F5F7] text-[#111317] no-print">
       {/* Distinct Admin Backpanel Sidebar (Dark Gray #1F2227) */}
@@ -100,6 +123,15 @@ export function AdminDashboard({
           <BrandLogo variant="dark" size="sm" />
           <p className="text-xs text-white/65 mt-2">
             Backpanel Dapur &amp; Kasir
+          </p>
+          <p className="text-[11px] text-white/55 mt-1 font-mono-num">
+            Admin:{' '}
+            <span
+              data-testid="admin-logged-in-user"
+              className="text-[#F59E0B] font-semibold"
+            >
+              {authUsername}
+            </span>
           </p>
         </div>
 
@@ -172,23 +204,28 @@ export function AdminDashboard({
             className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap text-[#F59E0B] hover:bg-[#2B2F36] transition-colors cursor-pointer"
           >
             <span className="flex items-center gap-2.5">
-              <Lock className="w-4 h-4 shrink-0" />
+              <UtensilsCrossed className="w-4 h-4 shrink-0" />
               <span>Admin Edit Menu</span>
-            </span>
-            <span className="font-mono-num text-[11px] font-semibold text-white/60">
-              Login
             </span>
           </button>
         </nav>
 
-        <div className="p-4 border-t border-[#2B2F36]">
+        <div className="p-4 border-t border-[#2B2F36] space-y-2">
           <button
             type="button"
             onClick={onSwitchToCustomer}
-            className="w-full h-11 px-4 rounded-lg bg-[#2B2F36] hover:bg-[#3A3F47] border border-white/15 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer"
+            className="w-full h-10 px-4 rounded-lg bg-[#2B2F36] hover:bg-[#3A3F47] border border-white/15 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer"
           >
             <Monitor className="w-4 h-4 text-[#F59E0B] shrink-0" />
             <span>Layar Customer</span>
+          </button>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="w-full h-10 px-4 rounded-lg border border-white/20 hover:border-[#F59E0B] hover:text-[#F59E0B] text-white/85 text-sm font-semibold flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span>Keluar</span>
           </button>
         </div>
       </aside>
@@ -399,6 +436,15 @@ export function AdminDashboard({
                               <span className="text-xs text-[#5C6370]" aria-hidden="true">
                                 ·
                               </span>
+                              <span
+                                data-testid={`order-table-${order.queueNumber}`}
+                                className="font-mono-num text-xs font-bold text-[#C2410C]"
+                              >
+                                Meja {order.tableNumber}
+                              </span>
+                              <span className="text-xs text-[#5C6370]" aria-hidden="true">
+                                ·
+                              </span>
                               <span className="font-mono-num text-xs font-semibold text-[#111317]">
                                 {formatRupiah(order.grandTotal)}
                               </span>
@@ -568,6 +614,7 @@ export function AdminDashboard({
                     <thead>
                       <tr className="bg-[#F4F5F7] border-b border-[#E2E4E8] text-xs font-semibold text-[#5C6370]">
                         <th className="py-3 px-6">No. Antrian</th>
+                        <th className="py-3 px-4">No. Meja</th>
                         <th className="py-3 px-4">Jam</th>
                         <th className="py-3 px-4">Rincian Makanan</th>
                         <th className="py-3 px-4 text-right">Durasi Masak</th>
@@ -591,6 +638,9 @@ export function AdminDashboard({
                               >
                                 {order.queueNumber}
                               </button>
+                            </td>
+                            <td className="py-3 px-4 font-mono-num font-semibold text-[#111317] whitespace-nowrap">
+                              Meja {order.tableNumber}
                             </td>
                             <td className="py-3 px-4 font-mono-num text-[#5C6370]">
                               {formatTimeClock(order.createdAt)}

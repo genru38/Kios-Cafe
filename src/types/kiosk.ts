@@ -28,6 +28,7 @@ export interface OrderItem {
 export interface OrderRecord {
   id: string;
   queueNumber: string;
+  tableNumber: string;
   items: OrderItem[];
   totalQty: number;
   subtotal: number;

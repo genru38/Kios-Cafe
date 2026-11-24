@@ -10,6 +10,7 @@ import {
   apiToggleMenuStock,
   apiUpdateMenu,
   fetchServerMenu,
+  logoutMenuAdmin,
 } from './logic/menuApi';
 import {
   buildViewUrl,
@@ -131,18 +132,27 @@ export default function App() {
     setCart({});
   }, []);
 
-  const handleSubmitOrder = useCallback(() => {
-    const now = Date.now();
-    const newOrder = createOrderFromCart(cart, menuItems, orders, now);
-    if (!newOrder) return;
+  const handleSubmitOrder = useCallback(
+    (tableNumber: string) => {
+      const now = Date.now();
+      const newOrder = createOrderFromCart(
+        cart,
+        menuItems,
+        orders,
+        tableNumber,
+        now
+      );
+      if (!newOrder) return;
 
-    const updatedOrders = [newOrder, ...orders];
-    setOrders(updatedOrders);
-    saveStoredOrders(updatedOrders);
-    setCart({});
-    setActiveReceipt(newOrder);
-    setNowMs(now);
-  }, [cart, menuItems, orders]);
+      const updatedOrders = [newOrder, ...orders];
+      setOrders(updatedOrders);
+      saveStoredOrders(updatedOrders);
+      setCart({});
+      setActiveReceipt(newOrder);
+      setNowMs(now);
+    },
+    [cart, menuItems, orders]
+  );
 
   const handleProcessOrder = useCallback((orderId: string) => {
     const now = Date.now();
@@ -170,10 +180,21 @@ export default function App() {
 
   const handleToggleStock = useCallback(
     async (menuId: string) => {
+      if (!menuAuthToken) {
+        throw new Error('Sesi login tidak valid. Silakan login kembali.');
+      }
       try {
-        const updated = await apiToggleMenuStock(menuId);
+        const updated = await apiToggleMenuStock(menuAuthToken, menuId);
         syncMenuState(updated);
-      } catch {
+      } catch (err) {
+        if (
+          err instanceof Error &&
+          err.message.toLowerCase().includes('sesi login')
+        ) {
+          setMenuAuthToken(null);
+          setMenuAuthUsername(null);
+          return;
+        }
         setMenuItems((prev) => {
           const next = toggleMenuStock(prev, menuId);
           saveStoredMenu(next);
@@ -182,7 +203,7 @@ export default function App() {
         });
       }
     },
-    [syncMenuState]
+    [menuAuthToken, syncMenuState]
   );
 
   const handleAddMenu = useCallback(
@@ -234,6 +255,14 @@ export default function App() {
     []
   );
 
+  const handleAdminLogout = useCallback(async () => {
+    if (menuAuthToken) {
+      await logoutMenuAdmin(menuAuthToken);
+    }
+    setMenuAuthToken(null);
+    setMenuAuthUsername(null);
+  }, [menuAuthToken]);
+
   return (
     <>
       {view === 'customer' && (
@@ -243,7 +272,6 @@ export default function App() {
           onUpdateQty={handleUpdateQty}
           onClearCart={handleClearCart}
           onSubmitOrder={handleSubmitOrder}
-          onSwitchToAdmin={() => switchView('admin')}
         />
       )}
 
@@ -252,6 +280,10 @@ export default function App() {
           menuItems={menuItems}
           orders={orders}
           nowMs={nowMs}
+          authToken={menuAuthToken}
+          authUsername={menuAuthUsername}
+          onAuthChange={handleMenuAuthChange}
+          onLogout={handleAdminLogout}
           onProcessOrder={handleProcessOrder}
           onFinishOrder={handleFinishOrder}
           onToggleStock={handleToggleStock}

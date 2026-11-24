@@ -87,19 +87,35 @@ export function generateQueueNumber(existingOrders: OrderRecord[]): string {
   return `A-${String(nextSeq).padStart(3, '0')}`;
 }
 
+export function normalizeTableNumber(raw: string): string {
+  return raw.trim().replace(/\s+/g, ' ').slice(0, 16);
+}
+
+export function validateTableNumber(raw: string): string | null {
+  const normalized = normalizeTableNumber(raw);
+  if (!normalized) {
+    return 'Nomor meja wajib diisi (contoh: 05 atau A2).';
+  }
+  return null;
+}
+
 export function createOrderFromCart(
   cart: CartMap,
   menuItems: MenuItem[],
   existingOrders: OrderRecord[],
+  tableNumber: string,
   nowMs: number = Date.now()
 ): OrderRecord | null {
   const calc = calculateCartTotals(cart, menuItems);
   if (calc.items.length === 0) return null;
+  const normalizedTable = normalizeTableNumber(tableNumber);
+  if (!normalizedTable) return null;
 
   const queueNumber = generateQueueNumber(existingOrders);
   return {
     id: `ord-${nowMs}-${queueNumber.toLowerCase()}`,
     queueNumber,
+    tableNumber: normalizedTable,
     items: calc.items,
     totalQty: calc.totalQty,
     subtotal: calc.subtotal,

@@ -160,10 +160,16 @@ export async function apiResetMenuDefault(token: string): Promise<MenuItem[]> {
   return data.menuItems;
 }
 
-export async function apiToggleMenuStock(itemId: string): Promise<MenuItem[]> {
+export async function apiToggleMenuStock(
+  token: string,
+  itemId: string
+): Promise<MenuItem[]> {
   const res = await fetch(
     resolveApiUrl(`api/menu/${encodeURIComponent(itemId)}/stock`),
-    { method: 'PATCH' }
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    }
   );
   const data = await parseJsonSafe<{ menuItems?: MenuItem[]; error?: string }>(
     res

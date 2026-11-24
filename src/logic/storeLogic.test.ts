@@ -13,11 +13,13 @@ import {
   formatRupiah,
   generateQueueNumber,
   getElapsedSeconds,
+  normalizeTableNumber,
   pruneOutOfStockFromCart,
   startOrderProcessing,
   toggleMenuStock,
   updateMenuItem,
   validateMenuDraft,
+  validateTableNumber,
 } from './storeLogic';
 
 test('calculateCartTotals computes qty, subtotal, 11% PPN, and grand total accurately', () => {
@@ -52,15 +54,25 @@ test('generateQueueNumber increments sequentially from existing orders', () => {
 
 test('order lifecycle transitions waiting -> processing -> finished with accurate timer stop', () => {
   const t0 = 1_700_000_000_000;
+  assert.ok(validateTableNumber('   '));
+  assert.equal(validateTableNumber(' 12 '), null);
+  assert.equal(normalizeTableNumber('  A   05  '), 'A 05');
+  assert.equal(
+    createOrderFromCart({ 'mkn-02': 1 }, INITIAL_MENU_ITEMS, [], '   ', t0),
+    null
+  );
+
   const order = createOrderFromCart(
     { 'mkn-02': 1 },
     INITIAL_MENU_ITEMS,
     [],
+    ' 12 ',
     t0
   );
   assert.ok(order);
   assert.equal(order.status, 'waiting');
   assert.equal(order.queueNumber, 'A-001');
+  assert.equal(order.tableNumber, '12');
   assert.equal(getElapsedSeconds(order, t0 + 15000), 0);
 
   // Click PROSES at t0 + 10s

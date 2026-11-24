@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Lock,
   LogOut,
   Eye,
   EyeOff,
@@ -9,15 +8,14 @@ import {
   Monitor,
   CheckCircle2,
   KeyRound,
-  ArrowLeft,
 } from 'lucide-react';
 import {
-  loginMenuAdmin,
   logoutMenuAdmin,
   updateMenuAdminCredentials,
 } from '../logic/menuApi';
 import type { MenuDraft } from '../logic/storeLogic';
 import type { MenuItem } from '../types/kiosk';
+import { AdminLoginGate } from './AdminLoginGate';
 import { BrandLogo } from './BrandLogo';
 import { MenuManagerSection } from './MenuManagerSection';
 
@@ -50,13 +48,6 @@ export function MenuAdminPage({
   onGoCustomer,
   onGoKitchenAdmin,
 }: MenuAdminPageProps) {
-  // Login state
-  const [loginUsername, setLoginUsername] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [loginBusy, setLoginBusy] = useState(false);
-
   // Authenticated page state
   const [activeTab, setActiveTab] = useState<MenuAdminTab>('catalog');
   const [actionError, setActionError] = useState<string | null>(null);
@@ -72,37 +63,11 @@ export function MenuAdminPage({
   const [credSuccess, setCredSuccess] = useState<string | null>(null);
   const [credBusy, setCredBusy] = useState(false);
 
-  const handleLoginSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const trimmedUser = loginUsername.trim();
-    if (!trimmedUser || !loginPassword) {
-      setLoginError('Username dan password wajib diisi.');
-      return;
-    }
-
-    setLoginBusy(true);
-    setLoginError(null);
-    try {
-      const result = await loginMenuAdmin(trimmedUser, loginPassword);
-      onAuthChange(result.token, result.username);
-      setNewUsername(result.username);
-      setLoginPassword('');
-      setActiveTab('catalog');
-    } catch (err) {
-      setLoginError(
-        err instanceof Error ? err.message : 'Gagal masuk. Periksa akun Anda.'
-      );
-    } finally {
-      setLoginBusy(false);
-    }
-  };
-
   const handleLogout = async () => {
     if (authToken) {
       await logoutMenuAdmin(authToken);
     }
     onAuthChange(null, null);
-    setLoginPassword('');
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
@@ -182,126 +147,18 @@ export function MenuAdminPage({
   // =========================================================================
   if (!authToken || !authUsername) {
     return (
-      <div className="min-h-screen bg-[#1F2227] flex flex-col justify-between p-5">
-        {/* Top Return Link */}
-        <div className="max-w-6xl w-full mx-auto flex items-center justify-between pt-2">
-          <BrandLogo variant="dark" size="sm" />
-          <button
-            type="button"
-            onClick={onGoCustomer}
-            className="h-9 px-3.5 rounded-lg border border-white/20 hover:border-[#F59E0B] text-white/90 hover:text-[#F59E0B] text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
-            <span>Kembali ke Layar Customer</span>
-          </button>
-        </div>
-
-        {/* Centered Login Card */}
-        <main className="flex-1 flex items-center justify-center py-10">
-          <div className="w-full max-w-md bg-white rounded-xl border border-[#E2E4E8] shadow-2xl overflow-hidden">
-            <div className="px-7 py-6 bg-[#2B2F36] text-white border-b border-[#3A3F47]">
-              <div className="w-11 h-11 rounded-lg kc-accent-gradient flex items-center justify-center mb-3.5 shadow-sm">
-                <Lock className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="font-display font-bold text-xl tracking-tight">
-                Login Admin Edit Menu
-              </h1>
-              <p className="text-xs text-white/75 mt-1 leading-relaxed">
-                Halaman khusus pengelola katalog makanan &amp; minuman KIOS CAFE.
-              </p>
-            </div>
-
-            <form
-              onSubmit={handleLoginSubmit}
-              noValidate
-              className="p-7 space-y-4"
-              data-testid="menu-admin-login-form"
-            >
-              {loginError && (
-                <div
-                  role="alert"
-                  data-testid="login-error-alert"
-                  className="px-3.5 py-2.5 rounded-lg bg-[#FFF7ED] border border-[#EA580C]/40 text-xs font-semibold text-[#C2410C]"
-                >
-                  {loginError}
-                </div>
-              )}
-
-              <div>
-                <label
-                  htmlFor="login-username"
-                  className="block text-xs font-semibold text-[#111317] mb-1.5"
-                >
-                  Username
-                </label>
-                <input
-                  id="login-username"
-                  type="text"
-                  autoComplete="username"
-                  value={loginUsername}
-                  onChange={(e) => {
-                    setLoginUsername(e.target.value);
-                    if (loginError) setLoginError(null);
-                  }}
-                  placeholder="Masukkan username admin"
-                  className="w-full h-11 px-3.5 rounded-lg border border-[#D1D5DB] focus:border-[#EA580C] focus:outline-none focus:ring-2 focus:ring-[#EA580C]/25 text-sm text-[#111317] bg-white"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="login-password"
-                  className="block text-xs font-semibold text-[#111317] mb-1.5"
-                >
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="login-password"
-                    type={showLoginPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    value={loginPassword}
-                    onChange={(e) => {
-                      setLoginPassword(e.target.value);
-                      if (loginError) setLoginError(null);
-                    }}
-                    placeholder="Masukkan password"
-                    className="w-full h-11 pl-3.5 pr-11 rounded-lg border border-[#D1D5DB] focus:border-[#EA580C] focus:outline-none focus:ring-2 focus:ring-[#EA580C]/25 text-sm text-[#111317] bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLoginPassword((prev) => !prev)}
-                    aria-label={
-                      showLoginPassword
-                        ? 'Sembunyikan password'
-                        : 'Tampilkan password'
-                    }
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-[#5C6370] hover:text-[#111317] cursor-pointer"
-                  >
-                    {showLoginPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loginBusy}
-                className="w-full h-11 rounded-lg kc-btn-accent font-display font-bold text-sm cursor-pointer mt-2"
-              >
-                {loginBusy ? 'Memverifikasi...' : 'Masuk ke Editor Menu'}
-              </button>
-            </form>
-          </div>
-        </main>
-
-        <footer className="text-center text-xs text-white/50 pb-2">
-          KIOS CAFE · Akses Terpisah Pengelola Menu
-        </footer>
-      </div>
+      <AdminLoginGate
+        title="Login Admin Edit Menu"
+        subtitle="Halaman khusus pengelola katalog makanan & minuman KIOS CAFE."
+        submitLabel="Masuk ke Editor Menu"
+        footerLabel="KIOS CAFE · Akses Terpisah Pengelola Menu"
+        onSuccess={(token, username) => {
+          onAuthChange(token, username);
+          setNewUsername(username);
+          setActiveTab('catalog');
+        }}
+        onGoCustomer={onGoCustomer}
+      />
     );
   }
 

@@ -61,9 +61,15 @@ export function loadStoredOrders(): OrderRecord[] {
       saveStoredOrders(seeds);
       return seeds;
     }
-    const parsed = JSON.parse(raw) as OrderRecord[];
+    const parsed = JSON.parse(raw) as Partial<OrderRecord>[];
     if (!Array.isArray(parsed)) return createSeedOrders();
-    return parsed;
+    return parsed.map((order) => ({
+      ...(order as OrderRecord),
+      tableNumber:
+        typeof order.tableNumber === 'string' && order.tableNumber.trim()
+          ? order.tableNumber.trim()
+          : '-',
+    }));
   } catch {
     return createSeedOrders();
   }

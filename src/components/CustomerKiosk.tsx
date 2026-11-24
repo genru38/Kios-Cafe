@@ -1,16 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Minus,
   Plus,
   ShoppingBag,
   Trash2,
   Printer,
-  LayoutDashboard,
   UtensilsCrossed,
+  Hash,
 } from 'lucide-react';
 import { CATEGORY_LABELS } from '../data/menuData';
 import { resolveAssetUrl } from '../logic/routing';
-import { calculateCartTotals, formatRupiah } from '../logic/storeLogic';
+import {
+  calculateCartTotals,
+  formatRupiah,
+  validateTableNumber,
+} from '../logic/storeLogic';
 import type { CartMap, CategoryFilter, MenuItem } from '../types/kiosk';
 import { BrandLogo } from './BrandLogo';
 
@@ -19,8 +23,7 @@ interface CustomerKioskProps {
   cart: CartMap;
   onUpdateQty: (menuId: string, delta: number) => void;
   onClearCart: () => void;
-  onSubmitOrder: () => void;
-  onSwitchToAdmin: () => void;
+  onSubmitOrder: (tableNumber: string) => void;
 }
 
 const CATEGORY_TABS: { key: CategoryFilter; label: string }[] = [
@@ -37,10 +40,12 @@ export function CustomerKiosk({
   onUpdateQty,
   onClearCart,
   onSubmitOrder,
-  onSwitchToAdmin,
 }: CustomerKioskProps) {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('semua');
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+  const [tableNumber, setTableNumber] = useState('');
+  const [tableError, setTableError] = useState<string | null>(null);
+  const tableInputRef = useRef<HTMLInputElement | null>(null);
 
   const filteredMenu = useMemo(() => {
     if (activeCategory === 'semua') return menuItems;
@@ -52,15 +57,34 @@ export function CustomerKiosk({
     [cart, menuItems]
   );
 
+  const handleCheckout = () => {
+    if (calculation.items.length === 0) return;
+    const error = validateTableNumber(tableNumber);
+    if (error) {
+      setTableError(error);
+      tableInputRef.current?.focus();
+      return;
+    }
+    setTableError(null);
+    onSubmitOrder(tableNumber);
+    setTableNumber('');
+  };
+
+  const handleReset = () => {
+    onClearCart();
+    setTableNumber('');
+    setTableError(null);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F4F5F7] text-[#111317] no-print">
-      {/* Top Bar — Strict 3-Zone Contract: Brand | Category Navigation | Admin Action */}
+      {/* Top Bar — Brand Logo & Headline + Category Navigation */}
       <header className="sticky top-0 z-30 bg-[#1F2227] text-white border-b border-[#2B2F36]">
         <div className="max-w-[1600px] mx-auto px-5 lg:px-8 h-[72px] flex items-center justify-between gap-6">
-          {/* Zone 1: Logo & Headline KIOS CAFE */}
+          {/* Logo & Headline KIOS CAFE */}
           <BrandLogo variant="dark" size="md" />
 
-          {/* Zone 2: Category Navigation Tabs (Desktop) */}
+          {/* Category Navigation Tabs (Desktop) */}
           <nav
             aria-label="Kategori Menu"
             className="hidden md:flex items-center gap-1.5 bg-[#2B2F36] p-1 rounded-lg"
@@ -84,16 +108,6 @@ export function CustomerKiosk({
               );
             })}
           </nav>
-
-          {/* Zone 3: Single Action to Admin Backpanel */}
-          <button
-            type="button"
-            onClick={onSwitchToAdmin}
-            className="h-10 px-4 rounded-lg border border-white/25 hover:border-[#F59E0B] hover:text-[#F59E0B] text-white text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <LayoutDashboard className="w-4 h-4 shrink-0" />
-            <span>Admin Panel</span>
-          </button>
         </div>
 
         {/* Mobile Category Bar */}
@@ -376,8 +390,50 @@ export function CustomerKiosk({
               )}
             </div>
 
-            {/* Auto-Calculated Qty, Subtotal, PPN 11%, Grand Total */}
+            {/* Auto-Calculated Qty, Subtotal, PPN 11%, Grand Total & Input No. Meja */}
             <div className="p-5 bg-[#F4F5F7] border-t border-[#E2E4E8] space-y-2.5">
+              {/* Input No. Meja */}
+              <div className="pb-3 mb-1 border-b border-[#D1D5DB]">
+                <label
+                  htmlFor="customer-table-number"
+                  className="block text-xs font-semibold text-[#111317] mb-1.5"
+                >
+                  No. Meja <span className="text-[#C2410C]">*</span>
+                </label>
+                <div className="relative">
+                  <Hash className="w-4 h-4 text-[#5C6370] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    ref={tableInputRef}
+                    id="customer-table-number"
+                    type="text"
+                    maxLength={16}
+                    value={tableNumber}
+                    onChange={(e) => {
+                      setTableNumber(e.target.value);
+                      if (tableError) setTableError(null);
+                    }}
+                    placeholder="Contoh: 05 atau A2"
+                    aria-invalid={tableError ? 'true' : undefined}
+                    aria-describedby={tableError ? 'table-number-error' : undefined}
+                    className={`w-full h-10 pl-9 pr-3.5 rounded-lg border bg-white text-sm font-mono-num font-semibold text-[#111317] placeholder:font-sans placeholder:font-normal placeholder:text-[#5C6370]/80 focus:outline-none focus:ring-2 ${
+                      tableError
+                        ? 'border-[#C2410C] focus:border-[#C2410C] focus:ring-[#EA580C]/25'
+                        : 'border-[#D1D5DB] focus:border-[#EA580C] focus:ring-[#EA580C]/25'
+                    }`}
+                  />
+                </div>
+                {tableError && (
+                  <p
+                    id="table-number-error"
+                    role="alert"
+                    data-testid="table-number-error"
+                    className="text-xs font-semibold text-[#C2410C] mt-1.5"
+                  >
+                    {tableError}
+                  </p>
+                )}
+              </div>
+
               <div className="flex items-center justify-between text-sm text-[#5C6370]">
                 <span>Total Qty</span>
                 <span
@@ -422,7 +478,7 @@ export function CustomerKiosk({
                 {calculation.items.length > 0 && (
                   <button
                     type="button"
-                    onClick={onClearCart}
+                    onClick={handleReset}
                     aria-label="Reset pesanan"
                     className="h-12 px-3.5 rounded-lg border border-[#3A3F47] bg-white hover:bg-[#1F2227] hover:text-white text-[#111317] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
                   >
@@ -432,7 +488,7 @@ export function CustomerKiosk({
                 <button
                   type="button"
                   disabled={calculation.items.length === 0}
-                  onClick={onSubmitOrder}
+                  onClick={handleCheckout}
                   className="flex-1 h-12 px-4 rounded-lg kc-btn-accent font-display font-bold text-sm flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
                 >
                   <Printer className="w-4 h-4 shrink-0" />

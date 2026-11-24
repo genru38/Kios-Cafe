@@ -134,6 +134,7 @@ export function createSeedOrders(nowMs: number = Date.now()): OrderRecord[] {
     {
       id: 'ord-seed-001',
       queueNumber: 'A-001',
+      tableNumber: '04',
       items: [
         {
           menuId: 'cmb-01',
@@ -165,6 +166,7 @@ export function createSeedOrders(nowMs: number = Date.now()): OrderRecord[] {
     {
       id: 'ord-seed-002',
       queueNumber: 'A-002',
+      tableNumber: '12',
       items: [
         {
           menuId: 'mkn-02',
@@ -196,6 +198,7 @@ export function createSeedOrders(nowMs: number = Date.now()): OrderRecord[] {
     {
       id: 'ord-seed-003',
       queueNumber: 'A-003',
+      tableNumber: '07',
       items: [
         {
           menuId: 'mkn-03',

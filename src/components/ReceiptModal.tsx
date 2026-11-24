@@ -68,7 +68,7 @@ export function ReceiptModal({ order, onClose }: ReceiptModalProps) {
             </p>
           </div>
 
-          {/* Queue Number Highlight Box */}
+          {/* Queue Number & Table Highlight Box */}
           <div className="my-5 py-4 px-4 rounded-lg bg-[#1F2227] text-white text-center">
             <p className="text-xs font-medium tracking-wider text-white/80">
               NOMOR ANTRIAN ANDA
@@ -78,6 +78,12 @@ export function ReceiptModal({ order, onClose }: ReceiptModalProps) {
               className="font-mono-num font-bold text-5xl tracking-wider mt-1 text-[#F59E0B]"
             >
               {order.queueNumber}
+            </p>
+            <p
+              data-testid="receipt-table-number"
+              className="mt-2.5 inline-block px-3 py-1 rounded bg-[#2B2F36] border border-white/15 font-mono-num text-sm font-bold text-white"
+            >
+              Meja {order.tableNumber}
             </p>
             <p className="text-xs text-white/80 mt-2">
               Harap menunggu panggilan di meja kasir depan

@@ -366,20 +366,24 @@ function createApiRouter(): express.Router {
     res.json({ menuItems: store.menuItems });
   });
 
-  router.patch('/menu/:id/stock', (req: Request, res: Response) => {
-    const id = req.params.id;
-    const exists = store.menuItems.some((item) => item.id === id);
-    if (!exists) {
-      res.status(404).json({ error: 'Menu tidak ditemukan.' });
-      return;
+  router.patch(
+    '/menu/:id/stock',
+    requireMenuAdmin,
+    (req: Request, res: Response) => {
+      const id = req.params.id;
+      const exists = store.menuItems.some((item) => item.id === id);
+      if (!exists) {
+        res.status(404).json({ error: 'Menu tidak ditemukan.' });
+        return;
+      }
+      store = {
+        ...store,
+        menuItems: toggleMenuStock(store.menuItems, id),
+      };
+      saveStore(store);
+      res.json({ menuItems: store.menuItems });
     }
-    store = {
-      ...store,
-      menuItems: toggleMenuStock(store.menuItems, id),
-    };
-    saveStore(store);
-    res.json({ menuItems: store.menuItems });
-  });
+  );
 
   // --- Protected Menu Editor CRUD Routes (Require Login Token) ---
   router.post('/menu', requireMenuAdmin, (req: Request, res: Response) => {
