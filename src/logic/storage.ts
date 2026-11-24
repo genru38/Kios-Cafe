@@ -4,27 +4,40 @@ import type { MenuItem, OrderRecord } from '../types/kiosk';
 const MENU_STORAGE_KEY = 'kios_cafe_menu_v1';
 const ORDERS_STORAGE_KEY = 'kios_cafe_orders_v1';
 
+const VALID_CATEGORIES = new Set(['makanan', 'dessert', 'minuman', 'paket_combo']);
+
 export function loadStoredMenu(): MenuItem[] {
   if (typeof window === 'undefined') return INITIAL_MENU_ITEMS;
   try {
     const raw = window.localStorage.getItem(MENU_STORAGE_KEY);
     if (!raw) return INITIAL_MENU_ITEMS;
-    const parsed = JSON.parse(raw) as Partial<MenuItem>[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_MENU_ITEMS;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return INITIAL_MENU_ITEMS;
 
-    // Merge stored availability flags onto canonical catalog so fresh asset paths stay valid
-    const availabilityMap = new Map<string, boolean>();
-    for (const item of parsed) {
-      if (item && typeof item.id === 'string' && typeof item.isAvailable === 'boolean') {
-        availabilityMap.set(item.id, item.isAvailable);
+    const validItems: MenuItem[] = [];
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== 'object') continue;
+      const item = entry as Partial<MenuItem>;
+      if (
+        typeof item.id === 'string' &&
+        typeof item.name === 'string' &&
+        typeof item.category === 'string' &&
+        VALID_CATEGORIES.has(item.category) &&
+        typeof item.price === 'number' &&
+        Number.isFinite(item.price)
+      ) {
+        validItems.push({
+          id: item.id,
+          name: item.name,
+          category: item.category as MenuItem['category'],
+          price: item.price,
+          image: typeof item.image === 'string' ? item.image : '',
+          description: typeof item.description === 'string' ? item.description : '',
+          isAvailable: typeof item.isAvailable === 'boolean' ? item.isAvailable : true,
+        });
       }
     }
-    return INITIAL_MENU_ITEMS.map((item) => ({
-      ...item,
-      isAvailable: availabilityMap.has(item.id)
-        ? Boolean(availabilityMap.get(item.id))
-        : item.isAvailable,
-    }));
+    return validItems;
   } catch {
     return INITIAL_MENU_ITEMS;
   }

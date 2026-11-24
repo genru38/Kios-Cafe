@@ -8,8 +8,10 @@ import {
   PackageCheck,
   Monitor,
   Eye,
+  Lock,
 } from 'lucide-react';
 import { CATEGORY_LABELS } from '../data/menuData';
+import { resolveAssetUrl } from '../logic/routing';
 import {
   calculateDailySummary,
   formatDuration,
@@ -28,6 +30,7 @@ interface AdminDashboardProps {
   onProcessOrder: (orderId: string) => void;
   onFinishOrder: (orderId: string) => void;
   onToggleStock: (menuId: string) => void;
+  onOpenEditMenuPage: () => void;
   onSwitchToCustomer: () => void;
 }
 
@@ -41,6 +44,7 @@ export function AdminDashboard({
   onProcessOrder,
   onFinishOrder,
   onToggleStock,
+  onOpenEditMenuPage,
   onSwitchToCustomer,
 }: AdminDashboardProps) {
   const [section, setSection] = useState<AdminSection>('orders');
@@ -157,6 +161,22 @@ export function AdminDashboard({
             </span>
             <span className="font-mono-num text-xs font-bold text-white/80">
               {availableCount}/{menuItems.length}
+            </span>
+          </button>
+
+          <div className="hidden lg:block my-2 border-t border-[#2B2F36]" />
+
+          <button
+            type="button"
+            onClick={onOpenEditMenuPage}
+            className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap text-[#F59E0B] hover:bg-[#2B2F36] transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2.5">
+              <Lock className="w-4 h-4 shrink-0" />
+              <span>Admin Edit Menu</span>
+            </span>
+            <span className="font-mono-num text-[11px] font-semibold text-white/60">
+              Login
             </span>
           </button>
         </nav>
@@ -652,7 +672,7 @@ export function AdminDashboard({
                     <div className="flex items-center gap-3.5 min-w-0">
                       <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-[#2B2F36] shrink-0">
                         <img
-                          src={item.image}
+                          src={resolveAssetUrl(item.image)}
                           alt={item.name}
                           referrerPolicy="no-referrer"
                           className={`w-full h-full object-cover ${

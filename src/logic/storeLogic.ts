@@ -159,6 +159,92 @@ export function toggleMenuStock(
   );
 }
 
+export interface MenuDraft {
+  name: string;
+  category: MenuItem['category'];
+  price: number;
+  image: string;
+  description: string;
+  isAvailable: boolean;
+}
+
+export interface MenuValidationErrors {
+  name?: string;
+  price?: string;
+  description?: string;
+}
+
+export function validateMenuDraft(draft: {
+  name: string;
+  price: number;
+  description: string;
+}): MenuValidationErrors {
+  const errors: MenuValidationErrors = {};
+  const trimmedName = draft.name.trim();
+  if (trimmedName.length < 2) {
+    errors.name = 'Nama menu wajib diisi minimal 2 karakter.';
+  }
+  if (!Number.isFinite(draft.price) || draft.price < 1000) {
+    errors.price = 'Harga menu wajib diisi minimal Rp 1.000.';
+  }
+  if (draft.description.trim().length > 220) {
+    errors.description = 'Deskripsi maksimal 220 karakter.';
+  }
+  return errors;
+}
+
+const CATEGORY_ID_PREFIX: Record<MenuItem['category'], string> = {
+  makanan: 'mkn',
+  dessert: 'dst',
+  minuman: 'mnm',
+  paket_combo: 'cmb',
+};
+
+export function addMenuItem(
+  menuItems: MenuItem[],
+  draft: MenuDraft,
+  nowMs: number = Date.now()
+): MenuItem[] {
+  const prefix = CATEGORY_ID_PREFIX[draft.category];
+  const newItem: MenuItem = {
+    id: `${prefix}-${nowMs}`,
+    name: draft.name.trim(),
+    category: draft.category,
+    price: Math.round(draft.price),
+    image: draft.image.trim(),
+    description: draft.description.trim(),
+    isAvailable: draft.isAvailable,
+  };
+  return [newItem, ...menuItems];
+}
+
+export function updateMenuItem(
+  menuItems: MenuItem[],
+  itemId: string,
+  draft: MenuDraft
+): MenuItem[] {
+  return menuItems.map((item) =>
+    item.id === itemId
+      ? {
+          ...item,
+          name: draft.name.trim(),
+          category: draft.category,
+          price: Math.round(draft.price),
+          image: draft.image.trim(),
+          description: draft.description.trim(),
+          isAvailable: draft.isAvailable,
+        }
+      : item
+  );
+}
+
+export function deleteMenuItem(
+  menuItems: MenuItem[],
+  itemId: string
+): MenuItem[] {
+  return menuItems.filter((item) => item.id !== itemId);
+}
+
 export function pruneOutOfStockFromCart(
   cart: CartMap,
   menuItems: MenuItem[]

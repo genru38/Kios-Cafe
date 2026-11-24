@@ -9,6 +9,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { CATEGORY_LABELS } from '../data/menuData';
+import { resolveAssetUrl } from '../logic/routing';
 import { calculateCartTotals, formatRupiah } from '../logic/storeLogic';
 import type { CartMap, CategoryFilter, MenuItem } from '../types/kiosk';
 import { BrandLogo } from './BrandLogo';
@@ -170,7 +171,7 @@ export function CustomerKiosk({
                     <div className="relative aspect-square w-full bg-[#2B2F36] overflow-hidden">
                       {!brokenImages[item.id] ? (
                         <img
-                          src={item.image}
+                          src={resolveAssetUrl(item.image)}
                           alt={item.name}
                           referrerPolicy="no-referrer"
                           onError={() =>

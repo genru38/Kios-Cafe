@@ -1,7 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CustomerKiosk } from './components/CustomerKiosk';
+import { MenuAdminPage } from './components/MenuAdminPage';
 import { ReceiptModal } from './components/ReceiptModal';
+import {
+  apiAddMenu,
+  apiDeleteMenu,
+  apiResetMenuDefault,
+  apiToggleMenuStock,
+  apiUpdateMenu,
+  fetchServerMenu,
+} from './logic/menuApi';
+import {
+  buildViewUrl,
+  parseAppView,
+  type AppView,
+} from './logic/routing';
 import {
   loadStoredMenu,
   loadStoredOrders,
@@ -15,19 +29,13 @@ import {
   pruneOutOfStockFromCart,
   startOrderProcessing,
   toggleMenuStock,
+  type MenuDraft,
 } from './logic/storeLogic';
 import type { CartMap, MenuItem, OrderRecord } from './types/kiosk';
 
-type AppView = 'customer' | 'admin';
-
 function getInitialView(): AppView {
   if (typeof window === 'undefined') return 'customer';
-  const hash = window.location.hash.toLowerCase();
-  const path = window.location.pathname.toLowerCase();
-  if (hash === '#admin' || path.startsWith('/admin')) {
-    return 'admin';
-  }
-  return 'customer';
+  return parseAppView(window.location.pathname, window.location.hash);
 }
 
 export default function App() {
@@ -38,6 +46,31 @@ export default function App() {
   const [activeReceipt, setActiveReceipt] = useState<OrderRecord | null>(null);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
+  // Server-verified Menu Admin Bearer session kept strictly in React memory
+  const [menuAuthToken, setMenuAuthToken] = useState<string | null>(null);
+  const [menuAuthUsername, setMenuAuthUsername] = useState<string | null>(null);
+
+  const syncMenuState = useCallback((nextMenu: MenuItem[]) => {
+    setMenuItems(nextMenu);
+    saveStoredMenu(nextMenu);
+    setCart((prevCart) => pruneOutOfStockFromCart(prevCart, nextMenu));
+  }, []);
+
+  // Load canonical menu catalog from backend on boot and when switching views
+  useEffect(() => {
+    let active = true;
+    fetchServerMenu()
+      .then((serverMenu) => {
+        if (active) syncMenuState(serverMenu);
+      })
+      .catch(() => {
+        // Keep local cache if offline
+      });
+    return () => {
+      active = false;
+    };
+  }, [view, syncMenuState]);
+
   // 1-second live clock for kitchen cooking timers
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -46,16 +79,20 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, []);
 
-  // Keep view synced with URL hash (#admin / #customer)
+  // Keep view synced with browser hash/path navigation
   useEffect(() => {
-    const handleHashChange = () => {
+    const handleLocationChange = () => {
       setView(getInitialView());
     };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => {
+      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('popstate', handleLocationChange);
+    };
   }, []);
 
-  // Cross-tab localStorage sync between Customer Kiosk and Admin Backpanel
+  // Cross-tab sync between Customer Kiosk, Kitchen Admin, and Edit Menu Admin
   useEffect(() => {
     return subscribeCrossTabSync(
       (syncedMenu) => {
@@ -71,9 +108,9 @@ export default function App() {
   const switchView = useCallback((next: AppView) => {
     setView(next);
     if (typeof window !== 'undefined') {
-      const targetHash = next === 'admin' ? '#admin' : '';
-      if (window.location.hash !== targetHash) {
-        window.history.replaceState(null, '', next === 'admin' ? '#admin' : window.location.pathname);
+      const targetUrl = buildViewUrl(window.location.pathname, next);
+      if (window.location.pathname !== targetUrl || window.location.hash !== '') {
+        window.history.pushState(null, '', targetUrl);
       }
     }
   }, []);
@@ -131,18 +168,75 @@ export default function App() {
     setNowMs(now);
   }, []);
 
-  const handleToggleStock = useCallback((menuId: string) => {
-    setMenuItems((prev) => {
-      const next = toggleMenuStock(prev, menuId);
-      saveStoredMenu(next);
-      setCart((prevCart) => pruneOutOfStockFromCart(prevCart, next));
-      return next;
-    });
-  }, []);
+  const handleToggleStock = useCallback(
+    async (menuId: string) => {
+      try {
+        const updated = await apiToggleMenuStock(menuId);
+        syncMenuState(updated);
+      } catch {
+        setMenuItems((prev) => {
+          const next = toggleMenuStock(prev, menuId);
+          saveStoredMenu(next);
+          setCart((prevCart) => pruneOutOfStockFromCart(prevCart, next));
+          return next;
+        });
+      }
+    },
+    [syncMenuState]
+  );
+
+  const handleAddMenu = useCallback(
+    async (draft: MenuDraft) => {
+      if (!menuAuthToken) {
+        throw new Error('Sesi login tidak valid. Silakan login kembali.');
+      }
+      const updated = await apiAddMenu(menuAuthToken, draft);
+      syncMenuState(updated);
+    },
+    [menuAuthToken, syncMenuState]
+  );
+
+  const handleUpdateMenu = useCallback(
+    async (itemId: string, draft: MenuDraft) => {
+      if (!menuAuthToken) {
+        throw new Error('Sesi login tidak valid. Silakan login kembali.');
+      }
+      const updated = await apiUpdateMenu(menuAuthToken, itemId, draft);
+      syncMenuState(updated);
+    },
+    [menuAuthToken, syncMenuState]
+  );
+
+  const handleDeleteMenu = useCallback(
+    async (itemId: string) => {
+      if (!menuAuthToken) {
+        throw new Error('Sesi login tidak valid. Silakan login kembali.');
+      }
+      const updated = await apiDeleteMenu(menuAuthToken, itemId);
+      syncMenuState(updated);
+    },
+    [menuAuthToken, syncMenuState]
+  );
+
+  const handleResetMenuDefault = useCallback(async () => {
+    if (!menuAuthToken) {
+      throw new Error('Sesi login tidak valid. Silakan login kembali.');
+    }
+    const updated = await apiResetMenuDefault(menuAuthToken);
+    syncMenuState(updated);
+  }, [menuAuthToken, syncMenuState]);
+
+  const handleMenuAuthChange = useCallback(
+    (token: string | null, username: string | null) => {
+      setMenuAuthToken(token);
+      setMenuAuthUsername(username);
+    },
+    []
+  );
 
   return (
     <>
-      {view === 'customer' ? (
+      {view === 'customer' && (
         <CustomerKiosk
           menuItems={menuItems}
           cart={cart}
@@ -151,7 +245,9 @@ export default function App() {
           onSubmitOrder={handleSubmitOrder}
           onSwitchToAdmin={() => switchView('admin')}
         />
-      ) : (
+      )}
+
+      {view === 'admin' && (
         <AdminDashboard
           menuItems={menuItems}
           orders={orders}
@@ -159,7 +255,24 @@ export default function App() {
           onProcessOrder={handleProcessOrder}
           onFinishOrder={handleFinishOrder}
           onToggleStock={handleToggleStock}
+          onOpenEditMenuPage={() => switchView('edit-menu')}
           onSwitchToCustomer={() => switchView('customer')}
+        />
+      )}
+
+      {view === 'edit-menu' && (
+        <MenuAdminPage
+          menuItems={menuItems}
+          authToken={menuAuthToken}
+          authUsername={menuAuthUsername}
+          onAuthChange={handleMenuAuthChange}
+          onAddMenu={handleAddMenu}
+          onUpdateMenu={handleUpdateMenu}
+          onDeleteMenu={handleDeleteMenu}
+          onToggleStock={handleToggleStock}
+          onResetMenuDefault={handleResetMenuDefault}
+          onGoCustomer={() => switchView('customer')}
+          onGoKitchenAdmin={() => switchView('admin')}
         />
       )}
 

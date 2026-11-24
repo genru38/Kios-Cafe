@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { INITIAL_MENU_ITEMS, createSeedOrders } from '../data/menuData';
 import {
   PPN_RATE,
+  addMenuItem,
   calculateCartTotals,
   calculateDailySummary,
   createOrderFromCart,
+  deleteMenuItem,
   finishOrderProcessing,
   formatDuration,
   formatRupiah,
@@ -14,6 +16,8 @@ import {
   pruneOutOfStockFromCart,
   startOrderProcessing,
   toggleMenuStock,
+  updateMenuItem,
+  validateMenuDraft,
 } from './storeLogic';
 
 test('calculateCartTotals computes qty, subtotal, 11% PPN, and grand total accurately', () => {
@@ -104,3 +108,62 @@ test('formatRupiah formats Indonesian Rupiah cleanly', () => {
   assert.equal(formatRupiah(54000), 'Rp 54.000');
   assert.equal(formatRupiah(0), 'Rp 0');
 });
+
+test('validateMenuDraft rejects empty name and invalid price', () => {
+  const errs = validateMenuDraft({ name: ' ', price: 500, description: 'ok' });
+  assert.ok(errs.name);
+  assert.ok(errs.price);
+  assert.equal(errs.description, undefined);
+
+  const valid = validateMenuDraft({
+    name: 'Kopi Butterscotch',
+    price: 35000,
+    description: 'Manis lembut',
+  });
+  assert.deepEqual(valid, {});
+});
+
+test('addMenuItem, updateMenuItem, and deleteMenuItem mutate catalog cleanly', () => {
+  const added = addMenuItem(
+    INITIAL_MENU_ITEMS,
+    {
+      name: 'Kopi Butterscotch',
+      category: 'minuman',
+      price: 35000,
+      image: '/src/assets/images/menu_es_kopi_aren_1795504404858.jpg',
+      description: 'Espresso dengan saus butterscotch.',
+      isAvailable: true,
+    },
+    1700000000123
+  );
+  assert.equal(added.length, INITIAL_MENU_ITEMS.length + 1);
+  assert.equal(added[0].id, 'mnm-1700000000123');
+  assert.equal(added[0].name, 'Kopi Butterscotch');
+
+  const updated = updateMenuItem(added, 'mnm-1700000000123', {
+    name: 'Kopi Butterscotch Spesial',
+    category: 'minuman',
+    price: 38000,
+    image: '/src/assets/images/menu_es_kopi_aren_1795504404858.jpg',
+    description: 'Versi spesial.',
+    isAvailable: false,
+  });
+  assert.equal(updated[0].name, 'Kopi Butterscotch Spesial');
+  assert.equal(updated[0].price, 38000);
+  assert.equal(updated[0].isAvailable, false);
+
+  const removed = deleteMenuItem(updated, 'mnm-1700000000123');
+  assert.equal(removed.length, INITIAL_MENU_ITEMS.length);
+  assert.equal(
+    removed.some((m) => m.id === 'mnm-1700000000123'),
+    false
+  );
+
+  // Deleting an item also prunes it from active customer cart
+  const prunedCart = pruneOutOfStockFromCart(
+    { 'mnm-1700000000123': 2, 'mkn-01': 1 },
+    removed
+  );
+  assert.deepEqual(prunedCart, { 'mkn-01': 1 });
+});
+
