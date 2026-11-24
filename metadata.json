@@ -1,0 +1,8 @@
+{
+  "name": "KIOS CAFE",
+  "description": "Aplikasi Self-Service Ordering Kiosk FnB & Dashboard Backpanel Dapur KIOS CAFE dengan cetak struk antrian, kalkulasi PPN otomatis, timer masak real-time, dan manajemen stok menu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
